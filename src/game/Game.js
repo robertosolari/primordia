@@ -1,0 +1,481 @@
+import * as THREE from 'three';
+import { Cell } from './Cell.js';
+import { World, WORLD_RADIUS } from './World.js';
+import { Hud } from './hud.js';
+import { PART_DEFS } from './parts.js';
+
+const NPC_TARGET = 26; // creature vive attorno al giocatore
+const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
+const SPAWN_RADIUS = 70; // anello di spawn attorno al giocatore
+const DESPAWN_RADIUS = 95;
+
+const PALETTE = [0xf2a65a, 0xe86a6a, 0x8ecf6c, 0xd985c8, 0x6c9be8, 0xe8d16c, 0x9be86c, 0xe86cb8];
+
+export class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 400);
+    this.camera.position.set(0, 27, 7.5);
+    this.camera.lookAt(0, 0, 0);
+
+    this.world = new World(this.scene);
+    this.hud = new Hud();
+
+    this.clock = new THREE.Clock();
+    this.time = 0;
+    this.dna = 0;
+    this.milestones = new Set();
+
+    this.npcs = [];
+    this.foods = [];
+    this.tokens = [];
+
+    this.mouseNdc = new THREE.Vector2();
+    this.mouseWorld = new THREE.Vector3();
+    this.raycaster = new THREE.Raycaster();
+    this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    this.spawnPlayer();
+    for (let i = 0; i < NPC_TARGET; i++) this.spawnNpc(true);
+    for (let i = 0; i < FOOD_TARGET; i++) this.spawnFood(true);
+
+    window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('pointermove', (e) => {
+      this.mouseNdc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    });
+
+    this.running = false;
+  }
+
+  start() {
+    if (this.running) return;
+    this.running = true;
+    this.clock.start();
+    this.renderer.setAnimationLoop(() => this.tick());
+    this.hud.setDna(this.dna);
+    this.hud.setHp(this.player.hp, this.player.maxHp);
+    this.hud.toast('Benvenuto nel brodo primordiale. Mangia le alghe verdi! 🌿');
+  }
+
+  // ------------------------------------------------------------- spawning
+
+  spawnPlayer() {
+    this.player = new Cell({ color: 0x5fd4c8, radius: 0.8, isPlayer: true });
+    this.scene.add(this.player.group);
+  }
+
+  randomRingPosition(center, minR, maxR) {
+    const a = Math.random() * Math.PI * 2;
+    const r = minR + Math.random() * (maxR - minR);
+    const p = new THREE.Vector3(center.x + Math.cos(a) * r, 0, center.z + Math.sin(a) * r);
+    // Dentro i confini del mondo.
+    const d = Math.hypot(p.x, p.z);
+    if (d > WORLD_RADIUS - 5) p.multiplyScalar((WORLD_RADIUS - 5) / d);
+    return p;
+  }
+
+  spawnNpc(initial = false) {
+    const playerR = this.player ? this.player.radius : 0.8;
+    // Distribuzione delle taglie relativa al giocatore: molte prede, alcuni pari, pochi mostri.
+    const roll = Math.random();
+    let radius;
+    if (roll < 0.45) radius = playerR * (0.35 + Math.random() * 0.45);
+    else if (roll < 0.8) radius = playerR * (0.8 + Math.random() * 0.4);
+    else radius = playerR * (1.3 + Math.random() * 0.9);
+    radius = THREE.MathUtils.clamp(radius, 0.25, 5);
+
+    const diet = Math.random() < 0.55 ? 'herbivore' : 'carnivore';
+    const npc = new Cell({
+      color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+      radius,
+      diet,
+    });
+    if (diet === 'carnivore' && Math.random() < 0.6) npc.addPart('spike');
+    if (Math.random() < 0.3) npc.addPart('flagellum');
+
+    npc.position.copy(
+      this.randomRingPosition(this.player.position, initial ? 12 : SPAWN_RADIUS * 0.7, SPAWN_RADIUS)
+    );
+    npc.wanderAngle = Math.random() * Math.PI * 2;
+    this.scene.add(npc.group);
+    this.npcs.push(npc);
+  }
+
+  spawnFood(initial = false, kind = 'alga', at = null) {
+    const isMeat = kind === 'meat';
+    const color = isMeat ? 0xe86a6a : 0x7ddb6f;
+    const geo = new THREE.IcosahedronGeometry(isMeat ? 0.28 : 0.18, 0);
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.55,
+      roughness: 0.7,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(
+      at ?? this.randomRingPosition(this.player.position, initial ? 3 : 12, SPAWN_RADIUS)
+    );
+    if (at) {
+      mesh.position.x += (Math.random() - 0.5) * 1.5;
+      mesh.position.z += (Math.random() - 0.5) * 1.5;
+    }
+    mesh.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+    this.scene.add(mesh);
+    this.foods.push({ mesh, kind, value: isMeat ? 4 : 1, spin: (Math.random() - 0.5) * 2 });
+  }
+
+  spawnToken(at = null) {
+    const types = Object.keys(PART_DEFS);
+    const type = types[Math.floor(Math.random() * types.length)];
+    const def = PART_DEFS[type];
+    const mesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.45, 0),
+      new THREE.MeshStandardMaterial({
+        color: def.color,
+        emissive: def.color,
+        emissiveIntensity: 1.2,
+        roughness: 0.3,
+      })
+    );
+    mesh.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
+    const halo = new THREE.PointLight(def.color, 6, 8);
+    mesh.add(halo);
+    this.scene.add(mesh);
+    this.tokens.push({ mesh, type });
+  }
+
+  // ------------------------------------------------------------- loop
+
+  tick() {
+    const dt = Math.min(this.clock.getDelta(), 0.05);
+    this.time += dt;
+    const t = this.time;
+
+    this.updatePlayer(dt, t);
+    this.updateNpcs(dt, t);
+    this.updateFood(dt, t);
+    this.updateTokens(dt, t);
+    this.handleCollisions(t);
+    this.manageSpawns();
+    this.world.update(dt, t, this.player.position);
+    this.updateCamera(dt);
+
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  updatePlayer(dt, t) {
+    if (this.player.dead) return;
+
+    this.raycaster.setFromCamera(this.mouseNdc, this.camera);
+    const hit = this.raycaster.ray.intersectPlane(this.groundPlane, this.mouseWorld);
+    if (hit) this.player.steer(this.mouseWorld, dt);
+
+    this.keepInBounds(this.player, dt);
+    this.player.update(dt, t);
+
+    // Trasparenza a lampeggio durante l'invulnerabilità.
+    const invuln = t < this.player.invulnUntil;
+    this.player.group.visible = !invuln || Math.floor(t * 12) % 2 === 0;
+  }
+
+  updateNpcs(dt, t) {
+    for (const npc of this.npcs) {
+      // Percezione: minaccia più vicina e obiettivo più vicino.
+      let threat = null, threatD = 20;
+      let prey = null, preyD = 26;
+
+      const consider = (other) => {
+        if (other === npc || other.dead) return;
+        const d = npc.position.distanceTo(other.position);
+        const isDangerous = other.diet === 'carnivore' || other.isPlayer;
+        if (other.radius > npc.radius * 1.25 && isDangerous && d < threatD) {
+          threat = other; threatD = d;
+        }
+        if (npc.diet === 'carnivore' && other.radius < npc.radius * 0.8 && d < preyD) {
+          prey = other; preyD = d;
+        }
+      };
+      consider(this.player);
+      for (const other of this.npcs) consider(other);
+
+      if (threat) {
+        const away = npc.position.clone().sub(threat.position).setY(0).normalize()
+          .multiplyScalar(12).add(npc.position);
+        npc.steer(away, dt, 1.15);
+      } else if (prey) {
+        npc.steer(prey.position, dt, 1.05);
+      } else if (npc.diet === 'herbivore') {
+        let food = null, foodD = 18;
+        for (const f of this.foods) {
+          if (f.kind !== 'alga') continue;
+          const d = npc.position.distanceTo(f.mesh.position);
+          if (d < foodD) { food = f; foodD = d; }
+        }
+        if (food) npc.steer(food.mesh.position, dt, 0.8);
+        else this.wander(npc, dt, t);
+      } else {
+        this.wander(npc, dt, t);
+      }
+
+      this.keepInBounds(npc, dt);
+      npc.update(dt, t);
+    }
+  }
+
+  wander(cell, dt, t) {
+    cell.wanderAngle = (cell.wanderAngle ?? 0) + (Math.random() - 0.5) * 2.4 * dt;
+    const target = new THREE.Vector3(
+      cell.position.x + Math.sin(cell.wanderAngle) * 8,
+      0,
+      cell.position.z + Math.cos(cell.wanderAngle) * 8
+    );
+    cell.steer(target, dt, 0.55);
+  }
+
+  keepInBounds(cell, dt) {
+    const d = Math.hypot(cell.position.x, cell.position.z);
+    if (d > WORLD_RADIUS) {
+      const inward = new THREE.Vector3(-cell.position.x, 0, -cell.position.z).normalize();
+      cell.velocity.addScaledVector(inward, (d - WORLD_RADIUS) * 4 * dt);
+    }
+  }
+
+  updateFood(dt, t) {
+    for (const f of this.foods) {
+      f.mesh.rotation.y += f.spin * dt;
+      f.mesh.position.y = Math.sin(t * 1.5 + f.mesh.position.x) * 0.2;
+    }
+  }
+
+  updateTokens(dt, t) {
+    for (const tok of this.tokens) {
+      tok.mesh.rotation.y += 1.6 * dt;
+      tok.mesh.position.y = Math.sin(t * 2 + tok.mesh.position.z) * 0.3 + 0.2;
+    }
+  }
+
+  // ------------------------------------------------------------- regole
+
+  canDevour(eater, victim) {
+    return eater.radius > victim.radius * 1.25;
+  }
+
+  canFight(attacker, victim) {
+    return attacker.stats.attack > 0 && attacker.radius > victim.radius * 0.8;
+  }
+
+  handleCollisions(t) {
+    const player = this.player;
+
+    // Cibo: mangiato da giocatore e NPC.
+    for (let i = this.foods.length - 1; i >= 0; i--) {
+      const f = this.foods[i];
+      let eaten = false;
+
+      if (!player.dead && player.position.distanceTo(f.mesh.position) < player.radius + 0.5) {
+        this.gainDna(f.value);
+        player.grow(f.value * 0.012);
+        this.hud.setHp(player.hp, player.maxHp);
+        eaten = true;
+      } else {
+        for (const npc of this.npcs) {
+          if (npc.diet === 'carnivore' && f.kind === 'alga') continue;
+          if (npc.position.distanceTo(f.mesh.position) < npc.radius + 0.4) {
+            npc.grow(f.value * 0.008);
+            eaten = true;
+            break;
+          }
+        }
+      }
+
+      if (eaten) {
+        this.scene.remove(f.mesh);
+        f.mesh.geometry.dispose();
+        f.mesh.material.dispose();
+        this.foods.splice(i, 1);
+      }
+    }
+
+    // Token delle parti: solo il giocatore.
+    for (let i = this.tokens.length - 1; i >= 0; i--) {
+      const tok = this.tokens[i];
+      if (!player.dead && player.position.distanceTo(tok.mesh.position) < player.radius + 0.8) {
+        const def = PART_DEFS[tok.type];
+        if (player.addPart(tok.type)) {
+          this.hud.setParts(player.parts);
+          this.hud.toast(`${def.icon} Nuova parte: <b>${def.name}</b> — ${def.describe}`);
+        } else {
+          this.gainDna(8);
+          this.hud.toast(`${def.icon} ${def.name} già al massimo: +8 DNA`);
+        }
+        this.scene.remove(tok.mesh);
+        this.tokens.splice(i, 1);
+      }
+    }
+
+    // Cellula contro cellula.
+    const all = player.dead ? this.npcs : [player, ...this.npcs];
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const a = all[i], b = all[j];
+        if (a.dead || b.dead) continue;
+        const dist = a.position.distanceTo(b.position);
+        if (dist > (a.radius + b.radius) * 0.85) continue;
+
+        const [big, small] = a.radius >= b.radius ? [a, b] : [b, a];
+
+        if (this.canDevour(big, small)) {
+          if (big.diet === 'herbivore' && !big.isPlayer) continue; // gli erbivori non cacciano
+          // Il giocatore non viene inghiottito in un colpo: subisce morsi.
+          const dmg = small.isPlayer ? 1 : 3;
+          if (small.takeDamage(dmg, t)) {
+            if (small.isPlayer) {
+              small.applyImpulse(small.position.clone().sub(big.position), 10);
+              this.hud.setHp(small.hp, small.maxHp);
+            }
+            if (small.dead) this.resolveDeath(big, small, t);
+          }
+        } else if (this.canFight(a, b) || this.canFight(b, a)) {
+          const attacker = this.canFight(a, b) && this.canFight(b, a)
+            ? (a.stats.attack >= b.stats.attack ? a : b)
+            : (this.canFight(a, b) ? a : b);
+          const victim = attacker === a ? b : a;
+          if (victim.takeDamage(1, t)) {
+            const dir = victim.position.clone().sub(attacker.position);
+            victim.applyImpulse(dir, 7);
+            attacker.applyImpulse(dir.negate(), 3);
+            if (victim.isPlayer) this.hud.setHp(victim.hp, victim.maxHp);
+            if (victim.dead) this.resolveDeath(attacker, victim, t);
+          }
+        } else {
+          // Semplice separazione fisica.
+          const dir = b.position.clone().sub(a.position).setY(0);
+          if (dir.lengthSq() < 0.0001) dir.set(1, 0, 0);
+          const overlap = (a.radius + b.radius) * 0.85 - dist;
+          dir.normalize().multiplyScalar(overlap * 0.5);
+          b.position.add(dir);
+          a.position.sub(dir);
+        }
+      }
+    }
+  }
+
+  resolveDeath(killer, victim, t) {
+    if (victim.isPlayer) {
+      this.onPlayerDeath();
+      return;
+    }
+
+    // Bottino: carne, DNA per il giocatore, a volte un token.
+    const drops = 2 + Math.floor(victim.radius * 2);
+    for (let k = 0; k < drops; k++) this.spawnFood(false, 'meat', victim.position.clone());
+    if (Math.random() < 0.25) this.spawnToken(victim.position.clone());
+
+    if (killer.isPlayer) {
+      const gained = Math.round(6 + victim.radius * 6);
+      this.gainDna(gained);
+      this.player.grow(victim.radius * 0.1);
+      this.hud.toast(`Hai divorato una cellula! +${gained} DNA`);
+    }
+
+    this.scene.remove(victim.group);
+    victim.dispose();
+    const idx = this.npcs.indexOf(victim);
+    if (idx >= 0) this.npcs.splice(idx, 1);
+  }
+
+  gainDna(amount) {
+    this.dna += amount;
+    this.hud.setDna(this.dna);
+    this.checkMilestones();
+  }
+
+  checkMilestones() {
+    const steps = [
+      [30, 'La tua cellula si sente più forte… continua a mangiare! 🦠'],
+      [80, 'I piccoli ora ti temono. Si comincia a fare sul serio.'],
+      [180, 'Sei tra i grandi del brodo primordiale! 🌊'],
+      [350, 'Poco manca… presto potrai lasciare il brodo. (Prossima fase: in arrivo!)'],
+    ];
+    for (const [threshold, msg] of steps) {
+      if (this.dna >= threshold && !this.milestones.has(threshold)) {
+        this.milestones.add(threshold);
+        this.hud.toast(msg, 3500);
+      }
+    }
+  }
+
+  onPlayerDeath() {
+    this.player.dead = true;
+    this.player.group.visible = false;
+    this.dna = Math.floor(this.dna / 2);
+    this.hud.setDna(this.dna);
+    this.hud.showDeath(this.dna);
+  }
+
+  respawn() {
+    const p = this.player;
+    p.dead = false;
+    p.hp = p.maxHp;
+    p.radius = Math.max(0.8, p.radius * 0.7);
+    p.group.scale.setScalar(p.radius);
+    p.recomputeStats();
+    p.position.set(0, 0, 0);
+    p.velocity.set(0, 0, 0);
+    p.invulnUntil = this.time + 3;
+    p.group.visible = true;
+    this.hud.setHp(p.hp, p.maxHp);
+    this.hud.hideOverlay();
+    this.hud.toast('Rinato! Sei di nuovo nel brodo. 🫧');
+  }
+
+  manageSpawns() {
+    // Rimuove ciò che è troppo lontano e rimpiazza per mantenere densità costante.
+    const center = this.player.position;
+
+    for (let i = this.npcs.length - 1; i >= 0; i--) {
+      if (this.npcs[i].position.distanceTo(center) > DESPAWN_RADIUS) {
+        this.scene.remove(this.npcs[i].group);
+        this.npcs[i].dispose();
+        this.npcs.splice(i, 1);
+      }
+    }
+    for (let i = this.foods.length - 1; i >= 0; i--) {
+      if (this.foods[i].mesh.position.distanceTo(center) > DESPAWN_RADIUS) {
+        this.scene.remove(this.foods[i].mesh);
+        this.foods[i].mesh.geometry.dispose();
+        this.foods[i].mesh.material.dispose();
+        this.foods.splice(i, 1);
+      }
+    }
+    for (let i = this.tokens.length - 1; i >= 0; i--) {
+      if (this.tokens[i].mesh.position.distanceTo(center) > DESPAWN_RADIUS * 1.4) {
+        this.scene.remove(this.tokens[i].mesh);
+        this.tokens.splice(i, 1);
+      }
+    }
+
+    while (this.npcs.length < NPC_TARGET) this.spawnNpc();
+    while (this.foods.length < FOOD_TARGET) this.spawnFood();
+    if (this.tokens.length < 3 && Math.random() < 0.005) this.spawnToken();
+  }
+
+  updateCamera(dt) {
+    const p = this.player.position;
+    const height = 20 + this.player.radius * 9;
+    const target = new THREE.Vector3(p.x, height, p.z + height * 0.28);
+    this.camera.position.lerp(target, Math.min(1, 3 * dt));
+    this.camera.lookAt(p.x, 0, p.z);
+  }
+
+  onResize() {
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+}

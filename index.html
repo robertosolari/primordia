@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Primordia</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🦠</text></svg>" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="scene"></canvas>
+
+  <div id="hud">
+    <div id="dna-panel">
+      <span class="dna-icon">🧬</span>
+      <span id="dna-count">0</span>
+      <span class="dna-label">DNA</span>
+    </div>
+    <div id="parts-panel"></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="overlay" class="hidden">
+    <div id="overlay-box">
+      <h1 id="overlay-title">Sei stato divorato!</h1>
+      <p id="overlay-text">Il brodo primordiale non perdona.</p>
+      <button id="overlay-btn">Rinasci</button>
+    </div>
+  </div>
+
+  <div id="intro" class="">
+    <div id="overlay-box">
+      <h1>PRIMORDIA</h1>
+      <p>Muovi la cellula col <b>mouse</b>. Mangia le alghe verdi per crescere.<br/>
+      Evita le creature più grandi di te… finché non sarai tu il predatore.<br/>
+      Raccogli i <b>frammenti luminosi</b> per evolvere nuove parti.</p>
+      <button id="intro-btn">Nuota</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
