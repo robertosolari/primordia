@@ -49,6 +49,11 @@ export class Game {
       this.mouseNdc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     });
 
+    this.keys = new Set();
+    window.addEventListener('keydown', (e) => this.keys.add(e.code));
+    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('blur', () => this.keys.clear());
+
     this.running = false;
   }
 
@@ -171,9 +176,22 @@ export class Game {
   updatePlayer(dt, t) {
     if (this.player.dead) return;
 
-    this.raycaster.setFromCamera(this.mouseNdc, this.camera);
-    const hit = this.raycaster.ray.intersectPlane(this.groundPlane, this.mouseWorld);
-    if (hit) this.player.steer(this.mouseWorld, dt);
+    // Tastiera (WASD / frecce) ha priorità; altrimenti si segue il mouse.
+    const dir = new THREE.Vector3(
+      (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
+        (this.keys.has('KeyA') || this.keys.has('ArrowLeft') ? 1 : 0),
+      0,
+      (this.keys.has('KeyS') || this.keys.has('ArrowDown') ? 1 : 0) -
+        (this.keys.has('KeyW') || this.keys.has('ArrowUp') ? 1 : 0)
+    );
+    if (dir.lengthSq() > 0) {
+      dir.normalize().multiplyScalar(8).add(this.player.position);
+      this.player.steer(dir, dt);
+    } else {
+      this.raycaster.setFromCamera(this.mouseNdc, this.camera);
+      const hit = this.raycaster.ray.intersectPlane(this.groundPlane, this.mouseWorld);
+      if (hit) this.player.steer(this.mouseWorld, dt);
+    }
 
     this.keepInBounds(this.player, dt);
     this.player.update(dt, t);

@@ -15,7 +15,8 @@ Build di produzione: `npm run build` (output in `dist/`), anteprima con `npm run
 
 ## Come si gioca
 
-- **Mouse** — la cellula nuota verso il cursore, con inerzia.
+- **WASD / frecce** — la cellula nuota nella direzione premuta, con inerzia.
+- **Mouse** — in alternativa, la cellula segue il cursore (la tastiera ha priorità).
 - **Alghe verdi** 🌿 — cibo per erbivori: danno DNA e crescita.
 - **Carne rossa** 🥩 — rilasciata dalle cellule divorate, vale di più.
 - **Frammenti luminosi** 💎 — token evolutivi: raccoglili per equipaggiare una parte.
