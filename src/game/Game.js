@@ -34,6 +34,7 @@ export class Game {
     this.npcs = [];
     this.foods = [];
     this.tokens = [];
+    this.hearts = [];
 
     this.mouseNdc = new THREE.Vector2();
     this.mouseWorld = new THREE.Vector3();
@@ -152,6 +153,32 @@ export class Game {
     mesh.add(halo);
     this.scene.add(mesh);
     this.tokens.push({ mesh, type });
+  }
+
+  spawnHeart(at = null) {
+    const color = 0xff5f8a;
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.1,
+      roughness: 0.35,
+    });
+    const group = new THREE.Group();
+    const shape = new THREE.Group();
+    const lobeL = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), mat);
+    const lobeR = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), mat);
+    lobeL.position.set(-0.17, 0.16, 0);
+    lobeR.position.set(0.17, 0.16, 0);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.62, 12), mat);
+    tip.rotation.z = Math.PI;
+    tip.position.y = -0.18;
+    shape.add(lobeL, lobeR, tip);
+    shape.rotation.x = -Math.PI / 2; // piatto verso la telecamera, così si legge la silhouette
+    group.add(shape);
+    group.add(new THREE.PointLight(color, 5, 7));
+    group.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
+    this.scene.add(group);
+    this.hearts.push({ mesh: group });
   }
 
   // ------------------------------------------------------------- loop
@@ -275,6 +302,12 @@ export class Game {
       tok.mesh.rotation.y += 1.6 * dt;
       tok.mesh.position.y = Math.sin(t * 2 + tok.mesh.position.z) * 0.3 + 0.2;
     }
+    for (const h of this.hearts) {
+      h.mesh.rotation.y += 1.2 * dt;
+      h.mesh.position.y = Math.sin(t * 2.2 + h.mesh.position.x) * 0.25 + 0.3;
+      const pulse = 1 + Math.sin(t * 5) * 0.12; // battito
+      h.mesh.scale.setScalar(pulse);
+    }
   }
 
   // ------------------------------------------------------------- regole
@@ -336,6 +369,23 @@ export class Game {
       }
     }
 
+    // Cuori: ripristinano una vita (o danno DNA se sei già al massimo).
+    for (let i = this.hearts.length - 1; i >= 0; i--) {
+      const h = this.hearts[i];
+      if (!player.dead && player.position.distanceTo(h.mesh.position) < player.radius + 0.8) {
+        if (player.hp < player.maxHp) {
+          player.hp++;
+          this.hud.setHp(player.hp, player.maxHp);
+          this.hud.toast('❤️ Vita recuperata!');
+        } else {
+          this.gainDna(5);
+          this.hud.toast('❤️ Sei già in piena salute: +5 DNA');
+        }
+        this.scene.remove(h.mesh);
+        this.hearts.splice(i, 1);
+      }
+    }
+
     // Cellula contro cellula.
     const all = player.dead ? this.npcs : [player, ...this.npcs];
     for (let i = 0; i < all.length; i++) {
@@ -393,6 +443,7 @@ export class Game {
     const drops = 2 + Math.floor(victim.radius * 2);
     for (let k = 0; k < drops; k++) this.spawnFood(false, 'meat', victim.position.clone());
     if (Math.random() < 0.25) this.spawnToken(victim.position.clone());
+    if (Math.random() < 0.12) this.spawnHeart(victim.position.clone());
 
     if (killer.isPlayer) {
       const gained = Math.round(6 + victim.radius * 6);
@@ -477,10 +528,17 @@ export class Game {
         this.tokens.splice(i, 1);
       }
     }
+    for (let i = this.hearts.length - 1; i >= 0; i--) {
+      if (this.hearts[i].mesh.position.distanceTo(center) > DESPAWN_RADIUS * 1.4) {
+        this.scene.remove(this.hearts[i].mesh);
+        this.hearts.splice(i, 1);
+      }
+    }
 
     while (this.npcs.length < NPC_TARGET) this.spawnNpc();
     while (this.foods.length < FOOD_TARGET) this.spawnFood();
     if (this.tokens.length < 3 && Math.random() < 0.005) this.spawnToken();
+    if (this.hearts.length < 2 && Math.random() < 0.002) this.spawnHeart();
   }
 
   updateCamera(dt) {
