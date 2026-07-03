@@ -266,6 +266,9 @@ export class Game {
 
   updateNpcs(dt, t) {
     for (const npc of this.npcs) {
+      // Anche i predatori possono avere lo scatto attivo.
+      const npcBoost = t < (npc.boostUntil ?? 0) ? 1.8 : 1;
+      npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : 1.6;
       // Percezione: minaccia più vicina e obiettivo più vicino.
       let threat = null, threatD = 20;
       let prey = null, preyD = 26;
@@ -287,9 +290,9 @@ export class Game {
       if (threat) {
         const away = npc.position.clone().sub(threat.position).setY(0).normalize()
           .multiplyScalar(12).add(npc.position);
-        npc.steer(away, dt, 1.15);
+        npc.steer(away, dt, 1.15 * npcBoost);
       } else if (prey) {
-        npc.steer(prey.position, dt, 1.05);
+        npc.steer(prey.position, dt, 1.05 * npcBoost);
       } else if (npc.diet === 'herbivore') {
         let food = null, foodD = 18;
         for (const f of this.foods) {
@@ -428,7 +431,7 @@ export class Game {
       }
     }
 
-    // Velocizzatori: scatto temporaneo (raccoglierne un altro rinnova la durata).
+    // Velocizzatori: scatto temporaneo. Anche i predatori li raccolgono!
     for (let i = this.bolts.length - 1; i >= 0; i--) {
       const b = this.bolts[i];
       if (!player.dead && player.position.distanceTo(b.mesh.position) < player.radius + 0.8) {
@@ -436,6 +439,19 @@ export class Game {
         this.hud.toast('⚡ Scatto primordiale! Velocità aumentata per 6 secondi');
         this.scene.remove(b.mesh);
         this.bolts.splice(i, 1);
+        continue;
+      }
+      for (const npc of this.npcs) {
+        if (npc.diet !== 'carnivore') continue;
+        if (npc.position.distanceTo(b.mesh.position) < npc.radius + 0.8) {
+          npc.boostUntil = t + 6;
+          if (npc.position.distanceTo(player.position) < 30) {
+            this.hud.toast('⚡ Un predatore ha raccolto uno scatto… occhio!');
+          }
+          this.scene.remove(b.mesh);
+          this.bolts.splice(i, 1);
+          break;
+        }
       }
     }
 
