@@ -22,6 +22,7 @@ Build di produzione: `npm run build` (output in `dist/`), anteprima con `npm run
 - **Frammenti luminosi** 💎 — token evolutivi: raccoglili per equipaggiare una parte.
 - **Cuori** ❤️ — i morsi dei predatori tolgono vita; a zero vieni divorato, rinasci più piccolo ma conservi le parti (e metà del DNA).
 - **Cuori pulsanti** 💗 — pickup rari nel brodo (a volte lasciati dalle cellule divorate): ripristinano una vita, o danno +5 DNA se sei già in piena salute.
+- **Velocizzatori** ⚡ — fulmini dorati fluttuanti: scatto temporaneo (velocità ×1.8 per 6 secondi, la membrana brilla finché dura; raccoglierne un altro rinnova il tempo).
 
 Regole del brodo: puoi divorare in un boccone chi è almeno il 25% più piccolo di te; contro chi è della tua taglia serve uno **Spuntone** per combattere. I predatori più grandi di te ti inseguono… finché non cresci abbastanza da diventare tu la minaccia.
 

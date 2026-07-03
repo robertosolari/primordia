@@ -35,6 +35,8 @@ export class Game {
     this.foods = [];
     this.tokens = [];
     this.hearts = [];
+    this.bolts = [];
+    this.boostUntil = 0;
 
     this.mouseNdc = new THREE.Vector2();
     this.mouseWorld = new THREE.Vector3();
@@ -181,6 +183,35 @@ export class Game {
     this.hearts.push({ mesh: group });
   }
 
+  spawnBolt(at = null) {
+    const color = 0xffd94d;
+    // Fulmine stilizzato, piatto verso la telecamera come il cuore.
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 1);
+    shape.lineTo(-0.45, 0.05);
+    shape.lineTo(-0.1, 0.05);
+    shape.lineTo(-0.35, -1);
+    shape.lineTo(0.45, 0.15);
+    shape.lineTo(0.1, 0.15);
+    shape.closePath();
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false });
+    geo.scale(0.55, 0.55, 1);
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 1.3,
+      roughness: 0.3,
+    });
+    const bolt = new THREE.Mesh(geo, mat);
+    bolt.rotation.x = -Math.PI / 2;
+    const group = new THREE.Group();
+    group.add(bolt);
+    group.add(new THREE.PointLight(color, 5, 7));
+    group.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
+    this.scene.add(group);
+    this.bolts.push({ mesh: group });
+  }
+
   // ------------------------------------------------------------- loop
 
   tick() {
@@ -203,6 +234,11 @@ export class Game {
   updatePlayer(dt, t) {
     if (this.player.dead) return;
 
+    // Scatto attivo? La membrana brilla di più finché dura.
+    const boosted = t < this.boostUntil;
+    const speedFactor = boosted ? 1.8 : 1;
+    this.player.membraneMat.userData.uniforms.uRim.value = boosted ? 2.8 : 1.6;
+
     // Tastiera (WASD / frecce) ha priorità; altrimenti si segue il mouse.
     const dir = new THREE.Vector3(
       (this.keys.has('KeyD') || this.keys.has('ArrowRight') ? 1 : 0) -
@@ -213,11 +249,11 @@ export class Game {
     );
     if (dir.lengthSq() > 0) {
       dir.normalize().multiplyScalar(8).add(this.player.position);
-      this.player.steer(dir, dt);
+      this.player.steer(dir, dt, speedFactor);
     } else {
       this.raycaster.setFromCamera(this.mouseNdc, this.camera);
       const hit = this.raycaster.ray.intersectPlane(this.groundPlane, this.mouseWorld);
-      if (hit) this.player.steer(this.mouseWorld, dt);
+      if (hit) this.player.steer(this.mouseWorld, dt, speedFactor);
     }
 
     this.keepInBounds(this.player, dt);
@@ -308,6 +344,12 @@ export class Game {
       const pulse = 1 + Math.sin(t * 5) * 0.12; // battito
       h.mesh.scale.setScalar(pulse);
     }
+    for (const b of this.bolts) {
+      b.mesh.rotation.y += 2.2 * dt;
+      b.mesh.position.y = Math.sin(t * 2.5 + b.mesh.position.z) * 0.25 + 0.3;
+      const flicker = 1 + Math.sin(t * 11) * 0.08; // sfarfallio elettrico
+      b.mesh.scale.setScalar(flicker);
+    }
   }
 
   // ------------------------------------------------------------- regole
@@ -383,6 +425,17 @@ export class Game {
         }
         this.scene.remove(h.mesh);
         this.hearts.splice(i, 1);
+      }
+    }
+
+    // Velocizzatori: scatto temporaneo (raccoglierne un altro rinnova la durata).
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      const b = this.bolts[i];
+      if (!player.dead && player.position.distanceTo(b.mesh.position) < player.radius + 0.8) {
+        this.boostUntil = t + 6;
+        this.hud.toast('⚡ Scatto primordiale! Velocità aumentata per 6 secondi');
+        this.scene.remove(b.mesh);
+        this.bolts.splice(i, 1);
       }
     }
 
@@ -534,11 +587,18 @@ export class Game {
         this.hearts.splice(i, 1);
       }
     }
+    for (let i = this.bolts.length - 1; i >= 0; i--) {
+      if (this.bolts[i].mesh.position.distanceTo(center) > DESPAWN_RADIUS * 1.4) {
+        this.scene.remove(this.bolts[i].mesh);
+        this.bolts.splice(i, 1);
+      }
+    }
 
     while (this.npcs.length < NPC_TARGET) this.spawnNpc();
     while (this.foods.length < FOOD_TARGET) this.spawnFood();
     if (this.tokens.length < 3 && Math.random() < 0.005) this.spawnToken();
     if (this.hearts.length < 2 && Math.random() < 0.002) this.spawnHeart();
+    if (this.bolts.length < 2 && Math.random() < 0.003) this.spawnBolt();
   }
 
   updateCamera(dt) {
