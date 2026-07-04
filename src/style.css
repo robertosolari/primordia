@@ -65,6 +65,23 @@ html, body {
 
 .part-chip .lvl { color: #8df0e2; font-weight: 700; }
 
+#mute-btn {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(120, 230, 220, 0.25);
+  background: rgba(8, 40, 48, 0.65);
+  font-size: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  z-index: 5;
+}
+
+#mute-btn:hover { background: rgba(60, 180, 170, 0.35); }
+
 #toast {
   position: fixed;
   left: 50%;

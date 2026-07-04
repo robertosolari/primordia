@@ -19,6 +19,9 @@ Non ci sono livelli separati: è un mondo continuo dove la progressione è la tu
 | **WASD / frecce** | Nuoti nella direzione premuta (ha priorità su tutto) |
 | **Mouse** | La cellula segue il cursore |
 | **Touch (mobile)** | Tocca o trascina: la cellula nuota verso il dito |
+| **🔊 in alto a destra** | Attiva/disattiva l'audio (la scelta viene ricordata) |
+
+Il gioco ha un **paesaggio sonoro completamente generativo**: ambience subacquea continua e un suono per ogni evento — bocconi, morsi, morte, rinascita, parti, cuori, fulmini e traguardi di DNA.
 
 Il movimento ha **inerzia**: la cellula accelera, scivola e frena come in un fluido. Vicino al cursore rallenta da sola (zona morta), così puoi fermarti con precisione.
 

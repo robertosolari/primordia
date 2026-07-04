@@ -49,6 +49,8 @@ src/
     ├── World.js       Atmosfera: nebbia, plancton, creature di profondità, fondale
     ├── parts.js       Definizioni e mesh delle parti evolutive
     ├── materials.js   Shader della membrana (fresnel + ondulazione organica)
+    ├── audio.js       Audio 100% procedurale (Web Audio API): ambience e effetti sintetizzati
+    ├── quality.js     Profilo qualità: su mobile riduce particelle, geometrie e pixel ratio
     └── hud.js         HUD: DNA, vita, parti, toast, schermata di morte
 ```
 
@@ -65,6 +67,5 @@ I parametri di bilanciamento (densità di cibo e creature, raggi di spawn) sono 
 
 - [ ] Post-processing: depth of field e bloom per il look Spore autentico
 - [ ] Editor delle parti (scegliere dove attaccarle) invece dell'auto-equip
-- [ ] Audio: ambiente subacqueo, feedback di morso e crescita
 - [ ] La milestone a 350 DNA diventa una vera transizione di fase
 - [ ] Biomi: zone del brodo con palette, prede e pericoli diversi

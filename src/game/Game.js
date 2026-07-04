@@ -4,6 +4,7 @@ import { World, WORLD_RADIUS } from './World.js';
 import { Hud } from './hud.js';
 import { PART_DEFS } from './parts.js';
 import { QUALITY } from './quality.js';
+import { SoundManager } from './audio.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -26,6 +27,7 @@ export class Game {
 
     this.world = new World(this.scene);
     this.hud = new Hud();
+    this.sound = new SoundManager();
 
     this.clock = new THREE.Clock();
     this.time = 0;
@@ -68,6 +70,7 @@ export class Game {
   start() {
     if (this.running) return;
     this.running = true;
+    this.sound.init(); // dopo un gesto utente: obbligatorio per l'audio su mobile
     this.clock.start();
     this.renderer.setAnimationLoop(() => this.tick());
     this.hud.setDna(this.dna);
@@ -382,6 +385,8 @@ export class Game {
         this.gainDna(f.value);
         player.grow(f.value * 0.012);
         this.hud.setHp(player.hp, player.maxHp);
+        if (f.kind === 'meat') this.sound.meat();
+        else this.sound.eat();
         eaten = true;
       } else {
         for (const npc of this.npcs) {
@@ -414,6 +419,7 @@ export class Game {
           this.gainDna(8);
           this.hud.toast(`${def.icon} ${def.name} già al massimo: +8 DNA`);
         }
+        this.sound.pickupPart();
         this.scene.remove(tok.mesh);
         this.tokens.splice(i, 1);
       }
@@ -431,6 +437,7 @@ export class Game {
           this.gainDna(5);
           this.hud.toast('❤️ Sei già in piena salute: +5 DNA');
         }
+        this.sound.heart();
         this.scene.remove(h.mesh);
         this.hearts.splice(i, 1);
       }
@@ -442,6 +449,7 @@ export class Game {
       if (!player.dead && player.position.distanceTo(b.mesh.position) < player.radius + 0.8) {
         this.boostUntil = t + 6;
         this.hud.toast('⚡ Scatto primordiale! Velocità aumentata per 6 secondi');
+        this.sound.bolt();
         this.scene.remove(b.mesh);
         this.bolts.splice(i, 1);
         continue;
@@ -479,6 +487,7 @@ export class Game {
             if (small.isPlayer) {
               small.applyImpulse(small.position.clone().sub(big.position), 10);
               this.hud.setHp(small.hp, small.maxHp);
+              if (!small.dead) this.sound.hurt();
             }
             if (small.dead) this.resolveDeath(big, small, t);
           }
@@ -491,7 +500,10 @@ export class Game {
             const dir = victim.position.clone().sub(attacker.position);
             victim.applyImpulse(dir, 7);
             attacker.applyImpulse(dir.negate(), 3);
-            if (victim.isPlayer) this.hud.setHp(victim.hp, victim.maxHp);
+            if (victim.isPlayer) {
+              this.hud.setHp(victim.hp, victim.maxHp);
+              if (!victim.dead) this.sound.hurt();
+            }
             if (victim.dead) this.resolveDeath(attacker, victim, t);
           }
         } else {
@@ -524,6 +536,7 @@ export class Game {
       this.gainDna(gained);
       this.player.grow(victim.radius * 0.1);
       this.hud.toast(`Hai divorato una cellula! +${gained} DNA`);
+      this.sound.meat();
     }
 
     this.scene.remove(victim.group);
@@ -549,6 +562,7 @@ export class Game {
       if (this.dna >= threshold && !this.milestones.has(threshold)) {
         this.milestones.add(threshold);
         this.hud.toast(msg, 3500);
+        this.sound.milestone();
       }
     }
   }
@@ -556,6 +570,7 @@ export class Game {
   onPlayerDeath() {
     this.player.dead = true;
     this.player.group.visible = false;
+    this.sound.death();
     this.dna = Math.floor(this.dna / 2);
     this.hud.setDna(this.dna);
     this.hud.showDeath(this.dna);
@@ -575,6 +590,8 @@ export class Game {
     this.hud.setHp(p.hp, p.maxHp);
     this.hud.hideOverlay();
     this.hud.toast('Rinato! Sei di nuovo nel brodo. 🫧');
+    this.sound.init(); // il click su "Rinasci" è un gesto valido anche per l'audio
+    this.sound.respawn();
   }
 
   manageSpawns() {

@@ -12,3 +12,10 @@ document.getElementById('intro-btn').addEventListener('click', () => {
 document.getElementById('overlay-btn').addEventListener('click', () => {
   game.respawn();
 });
+
+const muteBtn = document.getElementById('mute-btn');
+muteBtn.textContent = game.sound.muted ? '🔇' : '🔊';
+muteBtn.addEventListener('click', () => {
+  game.sound.init(); // anche questo click vale come gesto di sblocco audio
+  muteBtn.textContent = game.sound.toggleMute() ? '🔇' : '🔊';
+});
