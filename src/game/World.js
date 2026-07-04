@@ -96,15 +96,16 @@ export class World {
     // Il plancton avvolge il giocatore: le particelle che escono dal box
     // rientrano dal lato opposto, così il brodo sembra infinito.
     const p = this.plankton.geometry.attributes.position;
+    const arr = p.array; // accesso diretto: questo loop gira ogni frame
     const box = this.planktonBox;
-    for (let i = 0; i < p.count; i++) {
-      let x = p.getX(i), z = p.getZ(i);
+    for (let i = 0; i < arr.length; i += 3) {
+      let x = arr[i], z = arr[i + 2];
       while (x - playerPos.x > box.x / 2) x -= box.x;
       while (x - playerPos.x < -box.x / 2) x += box.x;
       while (z - playerPos.z > box.z / 2) z -= box.z;
       while (z - playerPos.z < -box.z / 2) z += box.z;
-      p.setX(i, x);
-      p.setZ(i, z);
+      arr[i] = x;
+      arr[i + 2] = z;
     }
     p.needsUpdate = true;
     // Lieve deriva verticale.

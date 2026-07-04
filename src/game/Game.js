@@ -6,6 +6,7 @@ import { PART_DEFS } from './parts.js';
 import { QUALITY } from './quality.js';
 import { SoundManager } from './audio.js';
 import { loadSave, persist } from './save.js';
+import { GEO, standardMat } from './assets.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -145,14 +146,10 @@ export class Game {
   spawnFood(initial = false, kind = 'alga', at = null) {
     const isMeat = kind === 'meat';
     const color = isMeat ? 0xe86a6a : 0x7ddb6f;
-    const geo = new THREE.IcosahedronGeometry(isMeat ? 0.28 : 0.18, 0);
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 0.55,
-      roughness: 0.7,
-    });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(
+      isMeat ? GEO.meat : GEO.alga,
+      standardMat(color, { emissiveIntensity: 0.55, roughness: 0.7 })
+    );
     mesh.position.copy(
       at ?? this.randomRingPosition(this.player.position, initial ? 3 : 12, SPAWN_RADIUS)
     );
@@ -170,71 +167,42 @@ export class Game {
     const type = types[Math.floor(Math.random() * types.length)];
     const def = PART_DEFS[type];
     const mesh = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.45, 0),
-      new THREE.MeshStandardMaterial({
-        color: def.color,
-        emissive: def.color,
-        emissiveIntensity: 1.2,
-        roughness: 0.3,
-      })
+      GEO.token,
+      standardMat(def.color, { emissiveIntensity: 1.2, roughness: 0.3 })
     );
     mesh.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
-    const halo = new THREE.PointLight(def.color, 6, 8);
-    mesh.add(halo);
     this.scene.add(mesh);
     this.tokens.push({ mesh, type });
   }
 
   spawnHeart(at = null) {
-    const color = 0xff5f8a;
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 1.1,
-      roughness: 0.35,
-    });
+    const mat = standardMat(0xff5f8a, { emissiveIntensity: 1.1, roughness: 0.35 });
     const group = new THREE.Group();
     const shape = new THREE.Group();
-    const lobeL = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), mat);
-    const lobeR = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 12), mat);
+    const lobeL = new THREE.Mesh(GEO.heartLobe, mat);
+    const lobeR = new THREE.Mesh(GEO.heartLobe, mat);
     lobeL.position.set(-0.17, 0.16, 0);
     lobeR.position.set(0.17, 0.16, 0);
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.62, 12), mat);
+    const tip = new THREE.Mesh(GEO.heartTip, mat);
     tip.rotation.z = Math.PI;
     tip.position.y = -0.18;
     shape.add(lobeL, lobeR, tip);
     shape.rotation.x = -Math.PI / 2; // piatto verso la telecamera, così si legge la silhouette
     group.add(shape);
-    group.add(new THREE.PointLight(color, 5, 7));
     group.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
     this.scene.add(group);
     this.hearts.push({ mesh: group });
   }
 
   spawnBolt(at = null) {
-    const color = 0xffd94d;
     // Fulmine stilizzato, piatto verso la telecamera come il cuore.
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 1);
-    shape.lineTo(-0.45, 0.05);
-    shape.lineTo(-0.1, 0.05);
-    shape.lineTo(-0.35, -1);
-    shape.lineTo(0.45, 0.15);
-    shape.lineTo(0.1, 0.15);
-    shape.closePath();
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.12, bevelEnabled: false });
-    geo.scale(0.55, 0.55, 1);
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 1.3,
-      roughness: 0.3,
-    });
-    const bolt = new THREE.Mesh(geo, mat);
+    const bolt = new THREE.Mesh(
+      GEO.bolt,
+      standardMat(0xffd94d, { emissiveIntensity: 1.3, roughness: 0.3 })
+    );
     bolt.rotation.x = -Math.PI / 2;
     const group = new THREE.Group();
     group.add(bolt);
-    group.add(new THREE.PointLight(color, 5, 7));
     group.position.copy(at ?? this.randomRingPosition(this.player.position, 25, SPAWN_RADIUS));
     this.scene.add(group);
     this.bolts.push({ mesh: group });
@@ -420,9 +388,7 @@ export class Game {
       }
 
       if (eaten) {
-        this.scene.remove(f.mesh);
-        f.mesh.geometry.dispose();
-        f.mesh.material.dispose();
+        this.scene.remove(f.mesh); // geometria e materiale sono condivisi: niente dispose
         this.foods.splice(i, 1);
       }
     }
@@ -633,8 +599,6 @@ export class Game {
     for (let i = this.foods.length - 1; i >= 0; i--) {
       if (this.foods[i].mesh.position.distanceTo(center) > DESPAWN_RADIUS) {
         this.scene.remove(this.foods[i].mesh);
-        this.foods[i].mesh.geometry.dispose();
-        this.foods[i].mesh.material.dispose();
         this.foods.splice(i, 1);
       }
     }

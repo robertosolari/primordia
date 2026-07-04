@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { createMembraneMaterial } from './materials.js';
 import { PART_DEFS, PART_BUILDERS } from './parts.js';
-import { QUALITY } from './quality.js';
+import { GEO, standardMat } from './assets.js';
 
 let nextId = 1;
 
@@ -47,34 +47,26 @@ export class Cell {
     this.membraneMat = createMembraneMaterial(this.color, {
       opacity: this.isPlayer ? 0.4 : 0.32,
     });
-    this.membrane = new THREE.Mesh(
-      new THREE.SphereGeometry(1, QUALITY.membraneSegments[0], QUALITY.membraneSegments[1]),
-      this.membraneMat
-    );
+    this.membrane = new THREE.Mesh(GEO.membrane, this.membraneMat);
     this.membrane.renderOrder = 2;
 
-    const nucleusColor = new THREE.Color(this.color).multiplyScalar(0.55);
+    // Geometrie condivise; i materiali standard escono dalla cache per colore.
+    const nucleusColor = new THREE.Color(this.color).multiplyScalar(0.55).getHex();
     this.nucleus = new THREE.Mesh(
-      new THREE.SphereGeometry(0.42, 20, 16),
-      new THREE.MeshStandardMaterial({
-        color: nucleusColor,
-        emissive: nucleusColor,
-        emissiveIntensity: 0.4,
-        roughness: 0.5,
-      })
+      GEO.nucleus,
+      standardMat(nucleusColor, { emissiveIntensity: 0.4, roughness: 0.5 })
     );
 
-    // Piccoli organelli sparsi dentro la membrana.
-    const organelleMat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(this.color).offsetHSL(0.08, 0, 0.1),
-      emissive: new THREE.Color(this.color).offsetHSL(0.08, 0, -0.1),
+    // Piccoli organelli sparsi dentro la membrana (taglia via scale, non geometria).
+    const organelleMat = standardMat(new THREE.Color(this.color).offsetHSL(0.08, 0, 0.1).getHex(), {
+      emissive: new THREE.Color(this.color).offsetHSL(0.08, 0, -0.1).getHex(),
       emissiveIntensity: 0.5,
-      roughness: 0.6,
     });
     this.organelles = new THREE.Group();
     const n = 4 + Math.floor(Math.random() * 3);
     for (let i = 0; i < n; i++) {
-      const o = new THREE.Mesh(new THREE.SphereGeometry(0.08 + Math.random() * 0.08, 8, 8), organelleMat);
+      const o = new THREE.Mesh(GEO.organelle, organelleMat);
+      o.scale.setScalar(0.65 + Math.random() * 0.65);
       const a = Math.random() * Math.PI * 2;
       const r = 0.35 + Math.random() * 0.35;
       o.position.set(Math.cos(a) * r, (Math.random() - 0.5) * 0.4, Math.sin(a) * r);
@@ -181,9 +173,8 @@ export class Cell {
   }
 
   dispose() {
-    this.group.traverse((obj) => {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
-    });
+    // Geometrie e materiali standard sono condivisi: si dealloca solo
+    // il materiale della membrana, che è l'unico per-cellula.
+    this.membraneMat.dispose();
   }
 }
