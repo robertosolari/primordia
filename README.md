@@ -15,6 +15,10 @@ npm run dev      # apre su http://localhost:5173
 
 Build di produzione: `npm run build` (output in `dist/`), anteprima con `npm run preview`.
 
+## Installazione come app (PWA)
+
+Il gioco è una **Progressive Web App**: dal sito live puoi installarlo come un'app nativa — su Android/desktop Chrome col pulsante "Installa", su iOS con *Condividi → Aggiungi alla schermata Home*. Una volta installato **funziona anche offline**: tutti gli asset sono in cache e il gioco non ha bisogno di rete (i progressi restano salvati in locale). Gli aggiornamenti si scaricano da soli alla prima apertura con connessione.
+
 ## Come si gioca
 
 - **WASD / frecce** — la cellula nuota nella direzione premuta, con inerzia.
