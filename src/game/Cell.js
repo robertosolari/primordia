@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createMembraneMaterial } from './materials.js';
 import { PART_DEFS, PART_BUILDERS } from './parts.js';
+import { QUALITY } from './quality.js';
 
 let nextId = 1;
 
@@ -46,7 +47,10 @@ export class Cell {
     this.membraneMat = createMembraneMaterial(this.color, {
       opacity: this.isPlayer ? 0.4 : 0.32,
     });
-    this.membrane = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 32), this.membraneMat);
+    this.membrane = new THREE.Mesh(
+      new THREE.SphereGeometry(1, QUALITY.membraneSegments[0], QUALITY.membraneSegments[1]),
+      this.membraneMat
+    );
     this.membrane.renderOrder = 2;
 
     const nucleusColor = new THREE.Color(this.color).multiplyScalar(0.55);

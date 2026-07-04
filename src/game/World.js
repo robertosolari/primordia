@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createMembraneMaterial } from './materials.js';
+import { QUALITY } from './quality.js';
 
 export const WORLD_RADIUS = 170;
 
@@ -23,7 +24,7 @@ export class World {
   }
 
   buildPlankton() {
-    const count = 900;
+    const count = QUALITY.planktonCount;
     const positions = new Float32Array(count * 3);
     this.planktonBox = new THREE.Vector3(90, 40, 90);
     for (let i = 0; i < count; i++) {
@@ -51,7 +52,7 @@ export class World {
     this.depthCreatures = [];
     const depths = [-16, -26, -38, -50];
     const palette = [0x2e6d78, 0x35566e, 0x4a3f66, 0x24505a];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < QUALITY.depthCreatures; i++) {
       const depth = depths[i % depths.length];
       const size = 2 + Math.random() * 6 + Math.abs(depth) * 0.12;
       const mat = createMembraneMaterial(palette[i % palette.length], {

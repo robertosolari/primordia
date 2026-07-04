@@ -3,6 +3,7 @@ import { Cell } from './Cell.js';
 import { World, WORLD_RADIUS } from './World.js';
 import { Hud } from './hud.js';
 import { PART_DEFS } from './parts.js';
+import { QUALITY } from './quality.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -14,8 +15,8 @@ const PALETTE = [0xf2a65a, 0xe86a6a, 0x8ecf6c, 0xd985c8, 0x6c9be8, 0xe8d16c, 0x9
 export class Game {
   constructor(canvas) {
     this.canvas = canvas;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: QUALITY.antialias });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.pixelRatioCap));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
 
     this.scene = new THREE.Scene();
@@ -48,9 +49,13 @@ export class Game {
     for (let i = 0; i < FOOD_TARGET; i++) this.spawnFood(true);
 
     window.addEventListener('resize', () => this.onResize());
-    window.addEventListener('pointermove', (e) => {
+    // pointermove copre mouse e trascinamento del dito; pointerdown serve
+    // per il tap su mobile (dove il move non arriva senza contatto).
+    const setPointer = (e) => {
       this.mouseNdc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
-    });
+    };
+    window.addEventListener('pointermove', setPointer);
+    window.addEventListener('pointerdown', setPointer);
 
     this.keys = new Set();
     window.addEventListener('keydown', (e) => this.keys.add(e.code));
