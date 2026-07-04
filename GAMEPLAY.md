@@ -138,7 +138,7 @@ Tre parti, ciascuna potenziabile fino al **livello 3** (i token della stessa par
 
 Le parti sono **visibili sul corpo**: il flagello ondeggia dietro, gli spuntoni sporgono davanti, le ciglia circondano la membrana. Anche sulle altre creature: guardale per capire cosa sanno fare prima di avvicinarti.
 
-Le parti **non si perdono mai**, nemmeno morendo.
+Le parti **non si perdono mai**: né morendo, né chiudendo il gioco — insieme alle milestone raggiunte vengono salvate sul dispositivo e le ritrovi alla sessione successiva. **DNA e taglia invece ripartono da zero** a ogni nuova sessione: la crescita va riguadagnata, il corpo evoluto resta.
 
 ---
 

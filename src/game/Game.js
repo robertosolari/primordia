@@ -5,6 +5,7 @@ import { Hud } from './hud.js';
 import { PART_DEFS } from './parts.js';
 import { QUALITY } from './quality.js';
 import { SoundManager } from './audio.js';
+import { loadSave, persist } from './save.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -47,6 +48,16 @@ export class Game {
     this.groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
     this.spawnPlayer();
+
+    // Ripristina i progressi permanenti: parti equipaggiate e milestone.
+    const saved = loadSave();
+    if (saved) {
+      for (const [type, level] of Object.entries(saved.parts)) {
+        for (let i = 0; i < level; i++) this.player.addPart(type);
+      }
+      this.milestones = new Set(saved.milestones);
+    }
+
     for (let i = 0; i < NPC_TARGET; i++) this.spawnNpc(true);
     for (let i = 0; i < FOOD_TARGET; i++) this.spawnFood(true);
 
@@ -75,6 +86,7 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.tick());
     this.hud.setDna(this.dna);
     this.hud.setHp(this.player.hp, this.player.maxHp);
+    this.hud.setParts(this.player.parts);
     this.hud.toast('Benvenuto nel brodo primordiale. Mangia le alghe verdi! 🌿');
   }
 
@@ -415,6 +427,7 @@ export class Game {
         if (player.addPart(tok.type)) {
           this.hud.setParts(player.parts);
           this.hud.toast(`${def.icon} Nuova parte: <b>${def.name}</b> — ${def.describe}`);
+          persist(player.parts, this.milestones);
         } else {
           this.gainDna(8);
           this.hud.toast(`${def.icon} ${def.name} già al massimo: +8 DNA`);
@@ -563,6 +576,7 @@ export class Game {
         this.milestones.add(threshold);
         this.hud.toast(msg, 3500);
         this.sound.milestone();
+        persist(this.player.parts, this.milestones);
       }
     }
   }
