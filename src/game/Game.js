@@ -123,8 +123,16 @@ export class Game {
       radius,
       diet,
     });
-    if (diet === 'carnivore' && Math.random() < 0.6) npc.addPart('spike');
-    if (Math.random() < 0.3) npc.addPart('flagellum');
+    if (diet === 'carnivore') {
+      // I cacciatori nascono armati; i più grossi hanno arsenali migliori.
+      if (Math.random() < 0.85) npc.addPart('spike');
+      if (radius > playerR * 1.2 && Math.random() < 0.5) npc.addPart('spike');
+      if (radius > playerR * 1.6 && Math.random() < 0.5) npc.addPart('spike');
+      if (Math.random() < 0.4) npc.addPart('flagellum');
+      if (Math.random() < 0.2) npc.addPart('cilia');
+    } else if (Math.random() < 0.25) {
+      npc.addPart('flagellum');
+    }
 
     npc.position.copy(
       this.randomRingPosition(this.player.position, initial ? 12 : SPAWN_RADIUS * 0.7, SPAWN_RADIUS)
@@ -291,7 +299,7 @@ export class Game {
       npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : 1.6;
       // Percezione: minaccia più vicina e obiettivo più vicino.
       let threat = null, threatD = 20;
-      let prey = null, preyD = 26;
+      let prey = null, preyD = 32;
 
       const consider = (other) => {
         if (other === npc || other.dead) return;
@@ -312,7 +320,7 @@ export class Game {
           .multiplyScalar(12).add(npc.position);
         npc.steer(away, dt, 1.15 * npcBoost);
       } else if (prey) {
-        npc.steer(prey.position, dt, 1.05 * npcBoost);
+        npc.steer(prey.position, dt, 1.15 * npcBoost);
       } else if (npc.diet === 'herbivore') {
         let food = null, foodD = 18;
         for (const f of this.foods) {
@@ -495,7 +503,8 @@ export class Game {
         if (this.canDevour(big, small)) {
           if (big.diet === 'herbivore' && !big.isPlayer) continue; // gli erbivori non cacciano
           // Il giocatore non viene inghiottito in un colpo: subisce morsi.
-          const dmg = small.isPlayer ? 1 : 3;
+          // Ma il morso di un gigante (70%+ più grande) toglie 2 cuori.
+          const dmg = small.isPlayer ? (big.radius > small.radius * 1.7 ? 2 : 1) : 3;
           if (small.takeDamage(dmg, t)) {
             if (small.isPlayer) {
               small.applyImpulse(small.position.clone().sub(big.position), 10);
@@ -509,7 +518,9 @@ export class Game {
             ? (a.stats.attack >= b.stats.attack ? a : b)
             : (this.canFight(a, b) ? a : b);
           const victim = attacker === a ? b : a;
-          if (victim.takeDamage(1, t)) {
+          // Spuntone al livello massimo: colpi da 2 danni (vale anche per te).
+          const hitDmg = attacker.stats.attack >= 3 ? 2 : 1;
+          if (victim.takeDamage(hitDmg, t)) {
             const dir = victim.position.clone().sub(attacker.position);
             victim.applyImpulse(dir, 7);
             attacker.applyImpulse(dir.negate(), 3);

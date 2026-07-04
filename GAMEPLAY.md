@@ -81,12 +81,12 @@ Questo significa che **il mondo si adatta alla tua crescita**: ci saranno sempre
 ### Diete e indole
 
 - **Erbivori** (~55%) — brucano alghe, non attaccano mai nessuno. Fuggono dai pericoli.
-- **Carnivori** (~45%) — cacciano attivamente chiunque sia sotto l'80% della loro taglia, te compreso. Circa il 60% di loro è nato con uno **Spuntone**, e il 30% di tutte le creature ha un **Flagello** (sono più veloci).
+- **Carnivori** (~45%) — cacciano attivamente chiunque sia sotto l'80% della loro taglia, te compreso, e **nascono armati**: l'85% ha uno **Spuntone**, e i predatori più grossi di te spesso ne montano **2 o 3** (colpiscono più duro — guardali bene prima di avvicinarti). Il 40% ha un **Flagello** e il 20% le **Ciglia**: cacciatori veloci e agili. Gli erbivori invece al massimo hanno un Flagello (25%) per scappare.
 
 ### Comportamento (in ordine di priorità)
 
 1. **Fuga** — se una creatura pericolosa (carnivoro o tu) almeno il 25% più grande si avvicina, scappa nella direzione opposta con uno scatto di paura.
-2. **Caccia** — i carnivori inseguono la preda più vicina sotto l'80% della loro taglia.
+2. **Caccia** — i carnivori inseguono la preda più vicina sotto l'80% della loro taglia; la fiutano da lontano e in inseguimento accelerano.
 3. **Pascolo** — gli erbivori puntano l'alga più vicina.
 4. **Vagabondaggio** — senza stimoli, nuotano pigramente cambiando direzione a caso.
 
@@ -99,10 +99,10 @@ Le creature hanno 3 vite come te e le stesse regole di caccia. Si cacciano anche
 Due modi per uccidere, due soglie da ricordare:
 
 ### Divorare (boccone unico)
-Se sei almeno il **25% più grande** della vittima, al contatto la inghiotti. Nessun combattimento: taglia vince. Vale anche al contrario — un predatore il 25% più grande di te ti morde al contatto (a te toglie 1 cuore per morso, non ti inghiotte subito: hai sempre una chance di fuga).
+Se sei almeno il **25% più grande** della vittima, al contatto la inghiotti. Nessun combattimento: taglia vince. Vale anche al contrario — un predatore il 25% più grande di te ti morde al contatto (1 cuore per morso, non ti inghiotte subito: hai sempre una chance di fuga). Ma attento ai **giganti**: chi è più grande di te del 70% o oltre strappa **2 cuori a morso**.
 
 ### Combattere (serve lo Spuntone)
-Contro chi è **della tua taglia** (tu almeno l'80% della sua) non puoi divorare: serve uno **Spuntone**. Ogni contatto infligge 1 danno e respinge entrambi. Tre colpi e la vittima muore. Se entrambi avete lo Spuntone, colpisce chi ne ha di più.
+Contro chi è **della tua taglia** (tu almeno l'80% della sua) non puoi divorare: serve uno **Spuntone**. Ogni contatto infligge 1 danno e respinge entrambi — ma con lo **Spuntone al livello 3 i colpi valgono 2 danni** (vale per te come per i nemici). Se entrambi avete lo Spuntone, colpisce chi ne ha di più.
 
 ### Bottino di una cellula uccisa
 - **Carne** 🥩 in quantità proporzionale alla taglia.
