@@ -2,7 +2,9 @@
 
 Un gioco web ispirato alla fase cellulare di **Spore**: sei una cellula nel brodo primordiale. Nuota, mangia, cresci ed evolvi nuove parti — finché i predatori che ti davano la caccia non cominceranno a temerti.
 
-Costruito con [Three.js](https://threejs.org/) e [Vite](https://vitejs.dev/), senza altri framework: la fisica vive su un piano 2D, la terza dimensione è pura scenografia (nebbia, plancton in sospensione, creature che nuotano nelle profondità).
+Costruito con [Three.js](https://threejs.org/) e [Vite](https://vitejs.dev/), senza altri framework: la fisica vive su un piano 2D, la terza dimensione è pura scenografia (nebbia, plancton in sospensione, creature che nuotano nelle profondità). Giocabile su desktop e **mobile** (touch, con profilo grafico alleggerito).
+
+📖 **Tutte le regole del gioco in dettaglio: [GAMEPLAY.md](GAMEPLAY.md)**
 
 ## Avvio
 
@@ -17,6 +19,7 @@ Build di produzione: `npm run build` (output in `dist/`), anteprima con `npm run
 
 - **WASD / frecce** — la cellula nuota nella direzione premuta, con inerzia.
 - **Mouse** — in alternativa, la cellula segue il cursore (la tastiera ha priorità).
+- **Touch (mobile)** — tocca o trascina il dito: la cellula nuota verso quel punto.
 - **Alghe verdi** 🌿 — cibo per erbivori: danno DNA e crescita.
 - **Carne rossa** 🥩 — rilasciata dalle cellule divorate, vale di più.
 - **Frammenti luminosi** 💎 — token evolutivi: raccoglili per equipaggiare una parte.
