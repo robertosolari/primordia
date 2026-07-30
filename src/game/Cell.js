@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createMembraneMaterial } from './materials.js';
 import { PART_DEFS, PART_BUILDERS } from './parts.js';
 import { GEO, standardMat } from './assets.js';
+import { ARCHETYPES } from './enemies.js';
 
 let nextId = 1;
 
@@ -9,19 +10,27 @@ let nextId = 1;
 // che vive sul piano XZ. La geometria è in spazio unitario e viene scalata
 // con il raggio, così le parti crescono con il corpo.
 export class Cell {
-  constructor({ color = 0x5fd4c8, radius = 1, isPlayer = false, diet = 'herbivore' } = {}) {
+  constructor({ color = 0x5fd4c8, radius = 1, isPlayer = false, diet = 'herbivore', archetype = 'drifter' } = {}) {
     this.id = nextId++;
     this.isPlayer = isPlayer;
     this.diet = diet;
     this.color = color;
     this.radius = radius;
 
+    this.archetype = archetype;
+    this.archetypeDef = ARCHETYPES[archetype] || ARCHETYPES.drifter;
+    // Stato usato dai comportamenti di gruppo/agguato in Game.updateNpcs.
+    this.groupId = null;
+    this.huntTarget = null;
+    this.ambushTarget = null;
+    this.burstUntil = 0;
+
     this.position = new THREE.Vector3();
     this.velocity = new THREE.Vector3();
     this.heading = 0;
 
-    this.hp = 3;
-    this.maxHp = 3;
+    this.maxHp = 3 + (this.archetypeDef.hpBonus || 0);
+    this.hp = this.maxHp;
     this.invulnUntil = 0;
     this.lastHitAt = -10;
     this.dead = false;
@@ -75,6 +84,8 @@ export class Cell {
 
     this.group.add(this.nucleus, this.organelles, this.membrane);
     this.group.scale.setScalar(this.radius);
+
+    if (this.archetypeDef.visual) this.archetypeDef.visual(this);
   }
 
   addPart(type) {
@@ -97,7 +108,12 @@ export class Cell {
   }
 
   recomputeStats() {
-    this.stats = { ...this.baseStats };
+    const mul = this.archetypeDef.statMul;
+    this.stats = {
+      maxSpeed: this.baseStats.maxSpeed * mul.maxSpeed,
+      agility: this.baseStats.agility * mul.agility,
+      attack: this.baseStats.attack * mul.attack,
+    };
     for (const [type, level] of Object.entries(this.parts)) {
       for (let i = 0; i < level; i++) PART_DEFS[type].apply(this.stats);
     }

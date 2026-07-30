@@ -7,6 +7,8 @@ import { QUALITY } from './quality.js';
 import { SoundManager } from './audio.js';
 import { loadSave, persist } from './save.js';
 import { GEO, standardMat } from './assets.js';
+import { telegramUserName } from './telegram.js';
+import { ARCHETYPES, pickArchetype } from './enemies.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -42,6 +44,7 @@ export class Game {
     this.hearts = [];
     this.bolts = [];
     this.boostUntil = 0;
+    this.nextGroupId = 1;
 
     this.mouseNdc = new THREE.Vector2();
     this.mouseWorld = new THREE.Vector3();
@@ -59,7 +62,7 @@ export class Game {
       this.milestones = new Set(saved.milestones);
     }
 
-    for (let i = 0; i < NPC_TARGET; i++) this.spawnNpc(true);
+    while (this.npcs.length < NPC_TARGET) this.spawnNpc(true);
     for (let i = 0; i < FOOD_TARGET; i++) this.spawnFood(true);
 
     window.addEventListener('resize', () => this.onResize());
@@ -88,7 +91,13 @@ export class Game {
     this.hud.setDna(this.dna);
     this.hud.setHp(this.player.hp, this.player.maxHp);
     this.hud.setParts(this.player.parts);
-    this.hud.toast('Benvenuto nel brodo primordiale. Mangia le alghe verdi! 🌿');
+    // Il nome arriva da Telegram e il toast usa innerHTML: via ogni markup.
+    const name = telegramUserName()?.replace(/[<>&"']/g, '').trim();
+    this.hud.toast(
+      name
+        ? `Ciao <b>${name}</b>, benvenuto nel brodo primordiale! 🌿`
+        : 'Benvenuto nel brodo primordiale. Mangia le alghe verdi! 🌿'
+    );
   }
 
   // ------------------------------------------------------------- spawning
@@ -110,37 +119,51 @@ export class Game {
 
   spawnNpc(initial = false) {
     const playerR = this.player ? this.player.radius : 0.8;
+    const archetypeDef = ARCHETYPES[pickArchetype()];
+
     // Distribuzione delle taglie relativa al giocatore: molte prede, alcuni pari, pochi mostri.
     const roll = Math.random();
     let radius;
     if (roll < 0.45) radius = playerR * (0.35 + Math.random() * 0.45);
     else if (roll < 0.8) radius = playerR * (0.8 + Math.random() * 0.4);
     else radius = playerR * (1.3 + Math.random() * 0.9);
-    radius = THREE.MathUtils.clamp(radius, 0.25, 5);
+    radius = THREE.MathUtils.clamp(radius * archetypeDef.sizeMul, 0.2, 5.5);
 
-    const diet = Math.random() < 0.55 ? 'herbivore' : 'carnivore';
-    const npc = new Cell({
-      color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
-      radius,
-      diet,
-    });
-    if (diet === 'carnivore') {
-      // I cacciatori nascono armati; i più grossi hanno arsenali migliori.
-      if (Math.random() < 0.85) npc.addPart('spike');
-      if (radius > playerR * 1.2 && Math.random() < 0.5) npc.addPart('spike');
-      if (radius > playerR * 1.6 && Math.random() < 0.5) npc.addPart('spike');
-      if (Math.random() < 0.4) npc.addPart('flagellum');
-      if (Math.random() < 0.2) npc.addPart('cilia');
-    } else if (Math.random() < 0.25) {
-      npc.addPart('flagellum');
-    }
+    const diet = archetypeDef.diet ?? (Math.random() < 0.55 ? 'herbivore' : 'carnivore');
+    const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
 
-    npc.position.copy(
-      this.randomRingPosition(this.player.position, initial ? 12 : SPAWN_RADIUS * 0.7, SPAWN_RADIUS)
+    let groupSize = archetypeDef.groupSize();
+    if (!initial) groupSize = Math.min(groupSize, Math.max(1, NPC_TARGET - this.npcs.length));
+    const groupId = groupSize > 1 ? this.nextGroupId++ : null;
+    const anchor = this.randomRingPosition(
+      this.player.position,
+      initial ? 12 : SPAWN_RADIUS * 0.7,
+      SPAWN_RADIUS
     );
-    npc.wanderAngle = Math.random() * Math.PI * 2;
-    this.scene.add(npc.group);
-    this.npcs.push(npc);
+
+    for (let i = 0; i < groupSize; i++) {
+      const npc = new Cell({ color, radius, diet, archetype: archetypeDef.id });
+      if (diet === 'carnivore') {
+        // I cacciatori nascono armati; i più grossi hanno arsenali migliori.
+        if (Math.random() < 0.85) npc.addPart('spike');
+        if (radius > playerR * 1.2 && Math.random() < 0.5) npc.addPart('spike');
+        if (radius > playerR * 1.6 && Math.random() < 0.5) npc.addPart('spike');
+        if (Math.random() < 0.4) npc.addPart('flagellum');
+        if (Math.random() < 0.2) npc.addPart('cilia');
+      } else if (Math.random() < 0.25) {
+        npc.addPart('flagellum');
+      }
+
+      npc.groupId = groupId;
+      npc.position.copy(
+        i === 0
+          ? anchor
+          : anchor.clone().add(new THREE.Vector3((Math.random() - 0.5) * 4 * radius, 0, (Math.random() - 0.5) * 4 * radius))
+      );
+      npc.wanderAngle = Math.random() * Math.PI * 2;
+      this.scene.add(npc.group);
+      this.npcs.push(npc);
+    }
   }
 
   spawnFood(initial = false, kind = 'alga', at = null) {
@@ -264,7 +287,7 @@ export class Game {
     for (const npc of this.npcs) {
       // Anche i predatori possono avere lo scatto attivo.
       const npcBoost = t < (npc.boostUntil ?? 0) ? 1.8 : 1;
-      npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : 1.6;
+      npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : npc.archetypeDef.rimBase;
       // Percezione: minaccia più vicina e obiettivo più vicino.
       let threat = null, threatD = 20;
       let prey = null, preyD = 32;
@@ -283,7 +306,19 @@ export class Game {
       consider(this.player);
       for (const other of this.npcs) consider(other);
 
-      if (threat) {
+      if (npc.archetype === 'packHunter') {
+        // Il branco condivide il bersaglio: chi non ha ancora avvistato nulla
+        // adotta la preda di un consanguineo vivo.
+        if (prey) npc.huntTarget = prey;
+        else if (npc.groupId != null) {
+          const shared = this.packSiblingTarget(npc);
+          if (shared) { prey = shared; preyD = npc.position.distanceTo(shared.position); }
+        }
+      }
+
+      if (npc.archetype === 'ambusher') {
+        this.updateAmbusher(npc, dt, t, threat, threatD, prey, preyD);
+      } else if (threat) {
         const away = npc.position.clone().sub(threat.position).setY(0).normalize()
           .multiplyScalar(12).add(npc.position);
         npc.steer(away, dt, 1.15 * npcBoost);
@@ -302,9 +337,56 @@ export class Game {
         this.wander(npc, dt, t);
       }
 
+      if (npc.archetype === 'swarmer') this.applySwarmCohesion(npc, dt);
+
       this.keepInBounds(npc, dt);
       npc.update(dt, t);
     }
+  }
+
+  // Il primo consanguineo vivo con una preda agganciata (usato dai pack hunter).
+  packSiblingTarget(npc) {
+    for (const other of this.npcs) {
+      if (other === npc || other.dead || other.groupId !== npc.groupId) continue;
+      if (other.huntTarget && !other.huntTarget.dead) return other.huntTarget;
+    }
+    return null;
+  }
+
+  // Mimetizzato: resta immobile finché una preda non entra nel raggio di
+  // agguato, poi scatta riusando il meccanismo di boost esistente.
+  updateAmbusher(npc, dt, t, threat, threatD, prey, preyD) {
+    const ambushRadius = 2.5 + npc.radius * 1.8;
+    if (t < (npc.burstUntil ?? 0) && npc.ambushTarget && !npc.ambushTarget.dead) {
+      npc.steer(npc.ambushTarget.position, dt, 1.3);
+      return;
+    }
+    if (threat && threatD < npc.radius * 2.5) {
+      const away = npc.position.clone().sub(threat.position).setY(0).normalize()
+        .multiplyScalar(12).add(npc.position);
+      npc.steer(away, dt, 1.15);
+      return;
+    }
+    if (prey && preyD < ambushRadius) {
+      npc.ambushTarget = prey;
+      npc.burstUntil = t + 2.2;
+      npc.boostUntil = t + 2.2;
+      npc.steer(prey.position, dt, 1.3);
+    }
+    // Altrimenti resta in agguato: l'attrito dell'acqua lo ferma da solo.
+  }
+
+  // Coesione leggera verso il centroide dei consanguineo vivi.
+  applySwarmCohesion(npc, dt) {
+    if (npc.groupId == null) return;
+    let cx = 0, cz = 0, count = 0;
+    for (const other of this.npcs) {
+      if (other === npc || other.dead || other.groupId !== npc.groupId) continue;
+      cx += other.position.x; cz += other.position.z; count++;
+    }
+    if (count === 0) return;
+    const centroid = new THREE.Vector3(cx / count, 0, cz / count);
+    npc.steer(centroid, dt, 0.35);
   }
 
   wander(cell, dt, t) {

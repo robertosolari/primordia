@@ -1,4 +1,7 @@
 import { Game } from './game/Game.js';
+import { initTelegram } from './game/telegram.js';
+
+initTelegram(); // prima possibile: dentro Telegram espande subito la WebView
 
 const canvas = document.getElementById('scene');
 const game = new Game(canvas);

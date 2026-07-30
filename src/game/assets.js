@@ -32,6 +32,7 @@ export const GEO = {
   spike: new THREE.ConeGeometry(0.22, 1.1, 10),
   cilium: new THREE.ConeGeometry(0.05, 0.45, 5),
   bolt: buildBoltGeometry(),
+  armorPlate: new THREE.BoxGeometry(0.5, 0.22, 0.32),
 };
 
 const matCache = new Map();
