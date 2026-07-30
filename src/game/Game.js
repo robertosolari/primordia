@@ -9,6 +9,7 @@ import { loadSave, persist } from './save.js';
 import { GEO, standardMat } from './assets.js';
 import { telegramUserName } from './telegram.js';
 import { ARCHETYPES, pickArchetype } from './enemies.js';
+import { STAGES } from './stages.js';
 
 const NPC_TARGET = 26; // creature vive attorno al giocatore
 const FOOD_TARGET = 150; // alghe presenti attorno al giocatore
@@ -37,6 +38,7 @@ export class Game {
     this.time = 0;
     this.dna = 0;
     this.milestones = new Set();
+    this.unlockedParts = new Set(['flagellum', 'spike', 'cilia']);
 
     this.npcs = [];
     this.foods = [];
@@ -60,6 +62,12 @@ export class Game {
         for (let i = 0; i < level; i++) this.player.addPart(type);
       }
       this.milestones = new Set(saved.milestones);
+      // Le fasi già raggiunte in sessioni precedenti vanno riapplicate
+      // (radiusCap/rimBase/bonus sono sullo stato runtime, non salvati):
+      // niente toast né suono, sono già state annunciate.
+      for (const stage of STAGES) {
+        if (this.milestones.has(stage.threshold)) this.applyStageEffects(stage);
+      }
     }
 
     while (this.npcs.length < NPC_TARGET) this.spawnNpc(true);
@@ -186,7 +194,7 @@ export class Game {
   }
 
   spawnToken(at = null) {
-    const types = Object.keys(PART_DEFS);
+    const types = [...this.unlockedParts];
     const type = types[Math.floor(Math.random() * types.length)];
     const def = PART_DEFS[type];
     const mesh = new THREE.Mesh(
@@ -256,7 +264,7 @@ export class Game {
     // Scatto attivo? La membrana brilla di più finché dura.
     const boosted = t < this.boostUntil;
     const speedFactor = boosted ? 1.8 : 1;
-    this.player.membraneMat.userData.uniforms.uRim.value = boosted ? 2.8 : 1.6;
+    this.player.membraneMat.userData.uniforms.uRim.value = boosted ? 2.8 : this.player.rimBase;
 
     // Tastiera (WASD / frecce) ha priorità; altrimenti si segue il mouse.
     const dir = new THREE.Vector3(
@@ -287,7 +295,7 @@ export class Game {
     for (const npc of this.npcs) {
       // Anche i predatori possono avere lo scatto attivo.
       const npcBoost = t < (npc.boostUntil ?? 0) ? 1.8 : 1;
-      npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : npc.archetypeDef.rimBase;
+      npc.membraneMat.userData.uniforms.uRim.value = npcBoost > 1 ? 2.8 : npc.rimBase;
       // Percezione: minaccia più vicina e obiettivo più vicino.
       let threat = null, threatD = 20;
       let prey = null, preyD = 32;
@@ -624,19 +632,26 @@ export class Game {
   }
 
   checkMilestones() {
-    const steps = [
-      [30, 'La tua cellula si sente più forte… continua a mangiare! 🦠'],
-      [80, 'I piccoli ora ti temono. Si comincia a fare sul serio.'],
-      [180, 'Sei tra i grandi del brodo primordiale! 🌊'],
-      [350, 'Poco manca… presto potrai lasciare il brodo. (Prossima fase: in arrivo!)'],
-    ];
-    for (const [threshold, msg] of steps) {
-      if (this.dna >= threshold && !this.milestones.has(threshold)) {
-        this.milestones.add(threshold);
-        this.hud.toast(msg, 3500);
+    for (const stage of STAGES) {
+      if (this.dna >= stage.threshold && !this.milestones.has(stage.threshold)) {
+        this.milestones.add(stage.threshold);
+        this.applyStageEffects(stage);
+        this.hud.toast(stage.message, 3500);
         this.sound.milestone();
         persist(this.player.parts, this.milestones);
       }
+    }
+  }
+
+  // Effetti permanenti di una fase evolutiva raggiunta; idempotente, viene
+  // richiamato sia al raggiungimento sia al ripristino da salvataggio.
+  applyStageEffects(stage) {
+    if (stage.radiusCap) this.player.radiusCap = stage.radiusCap;
+    if (stage.rimBase) this.player.rimBase = stage.rimBase;
+    if (stage.unlockPart) this.unlockedParts.add(stage.unlockPart);
+    if (stage.statBonus) {
+      for (const [key, mul] of Object.entries(stage.statBonus)) this.player.baseStats[key] *= mul;
+      this.player.recomputeStats();
     }
   }
 

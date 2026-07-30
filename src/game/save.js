@@ -10,7 +10,7 @@ export function loadSave() {
     if (!raw) return null;
     const data = JSON.parse(raw);
     return {
-      parts: { flagellum: 0, spike: 0, cilia: 0, ...(data.parts ?? {}) },
+      parts: { flagellum: 0, spike: 0, cilia: 0, armor: 0, ...(data.parts ?? {}) },
       milestones: Array.isArray(data.milestones) ? data.milestones : [],
     };
   } catch {

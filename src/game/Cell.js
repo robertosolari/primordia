@@ -25,6 +25,11 @@ export class Cell {
     this.ambushTarget = null;
     this.burstUntil = 0;
 
+    // Mutabili a runtime dalle fasi evolutive (solo per il giocatore;
+    // per gli NPC restano il default dell'archetipo).
+    this.rimBase = this.archetypeDef.rimBase;
+    this.radiusCap = 4.2;
+
     this.position = new THREE.Vector3();
     this.velocity = new THREE.Vector3();
     this.heading = 0;
@@ -35,7 +40,7 @@ export class Cell {
     this.lastHitAt = -10;
     this.dead = false;
 
-    this.parts = { flagellum: 0, spike: 0, cilia: 0 };
+    this.parts = { flagellum: 0, spike: 0, cilia: 0, armor: 0 };
     this.partGroups = [];
     this.wobblePhase = Math.random() * Math.PI * 2;
 
@@ -92,6 +97,7 @@ export class Cell {
     const def = PART_DEFS[type];
     if (!def || this.parts[type] >= def.maxLevel) return false;
     this.parts[type]++;
+    if (type === 'armor') { this.maxHp++; this.hp++; }
 
     const mesh = PART_BUILDERS[type](def.color);
     // Livelli successivi vengono ruotati per non sovrapporsi.
@@ -122,7 +128,7 @@ export class Cell {
   }
 
   grow(amount) {
-    this.radius = Math.min(this.radius + amount, 4.2);
+    this.radius = Math.min(this.radius + amount, this.radiusCap);
     this.group.scale.setScalar(this.radius);
     this.recomputeStats();
   }

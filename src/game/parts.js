@@ -31,6 +31,15 @@ export const PART_DEFS = {
     describe: 'Manovrabilità e scatto migliorati',
     apply: (stats) => { stats.agility *= 1.35; },
   },
+  armor: {
+    id: 'armor',
+    name: 'Corazza',
+    icon: '🛡️',
+    color: 0x9ec6ff,
+    maxLevel: 3,
+    describe: 'Aumenta i punti vita massimi (ma appesantisce)',
+    apply: (stats) => { stats.agility *= 0.95; },
+  },
 };
 
 // --- Mesh delle parti, costruite in spazio locale della cellula.
@@ -82,8 +91,23 @@ export function buildCilia(color) {
   return group;
 }
 
+export function buildArmor(color) {
+  const group = new THREE.Group();
+  const mat = standardMat(color, { emissiveIntensity: 0.2, roughness: 0.75 });
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2;
+    const plate = new THREE.Mesh(GEO.armorPlate, mat);
+    plate.position.set(Math.cos(a) * 0.98, 0, Math.sin(a) * 0.98);
+    plate.lookAt(plate.position.clone().multiplyScalar(2));
+    group.add(plate);
+  }
+  return group;
+}
+
 export const PART_BUILDERS = {
   flagellum: buildFlagellum,
   spike: buildSpike,
   cilia: buildCilia,
+  armor: buildArmor,
 };
